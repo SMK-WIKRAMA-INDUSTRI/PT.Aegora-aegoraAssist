@@ -1,0 +1,41 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+@theme {
+    --font-serif: 'Playfair Display', Georgia, Cambria, serif;
+    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --color-maroon-950: #29080F;
+    --color-maroon-900: #380C16;
+    --color-maroon-800: #4B111E;
+    --color-maroon-700: #571724;
+    --color-maroon-600: #6B1E2E;
+    --color-maroon-500: #83273A;
+    --color-cream-50: #FDFBF7;
+    --color-cream-100: #F8F3E6;
+    --color-cream-200: #F2EBD7;
+    --color-cream-300: #E9DEBE;
+    --color-cream-400: #DAC9A0;
+    --color-gold-400: #E2B958;
+    --color-gold-500: #C89932;
+    --color-gold-600: #A97C22;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: #DAC9A0;
+    border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #C89932;
+}
