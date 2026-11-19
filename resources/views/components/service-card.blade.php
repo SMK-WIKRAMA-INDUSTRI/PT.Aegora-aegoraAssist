@@ -2,7 +2,8 @@
     'icon' => 'bed',
     'title' => '',
     'description' => '',
-    'prompt' => ''
+    'prompt' => '',
+    'key' => ''
 ])
 
 @php
@@ -15,6 +16,7 @@
 @endphp
 
 <button type="button" 
+        data-card-key="{{ $key }}"
         data-quick-prompt="{{ $prompt }}" 
         class="service-card-btn group text-left bg-[#F4EDE0] hover:bg-[#EFE5D3] active:scale-[0.98] border border-[#E5DAC4] hover:border-[#D8C7A5] rounded-2xl p-4 transition-all duration-150 flex flex-col justify-between shadow-2xs">
     <div class="w-8 h-8 rounded-xl bg-[#F0E4D5] text-[#571724] group-hover:bg-[#571724] group-hover:text-amber-200 flex items-center justify-center transition-colors mb-3">
@@ -23,10 +25,10 @@
         </svg>
     </div>
     <div>
-        <h4 class="font-bold text-xs sm:text-sm text-[#3B121C] group-hover:text-[#571724] transition-colors leading-tight">
+        <h4 class="service-card-title font-bold text-xs sm:text-sm text-[#3B121C] group-hover:text-[#571724] transition-colors leading-tight">
             {{ $title }}
         </h4>
-        <p class="text-[11px] text-stone-500 mt-1 leading-snug line-clamp-2">
+        <p class="service-card-desc text-[11px] text-stone-500 mt-1 leading-snug line-clamp-2">
             {{ $description }}
         </p>
     </div>

@@ -5,6 +5,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let sessionId = localStorage.getItem('aegora_session_id') || ('aegora_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now());
     localStorage.setItem('aegora_session_id', sessionId);
 
+    // Language state
+    let currentLang = localStorage.getItem('aegora_lang') || 'id';
+
     // DOM Elements
     const chatForm = document.getElementById('chat-form');
     const chatInput = document.getElementById('chat-input');
@@ -18,8 +21,196 @@ document.addEventListener('DOMContentLoaded', () => {
     const requestStaffChatBtn = document.getElementById('request-staff-chat-btn');
     const attachBtn = document.getElementById('attach-btn');
     const voiceBtn = document.getElementById('voice-btn');
+    const langIdBtn = document.getElementById('lang-id-btn');
+    const langEnBtn = document.getElementById('lang-en-btn');
+    const quickReplyContainer = document.getElementById('quick-reply-container');
 
     let isProcessing = false;
+
+    // Bilingual Dictionaries
+    const i18n = {
+        id: {
+            nav_chat: 'Percakapan',
+            nav_staff: 'Hubungi Staf',
+            sub_title: 'Aegora Assist Concierge',
+            sub_desc: 'Online • Respon instan dalam hitungan detik | PT Aegora Hospitality',
+            verified_guest: 'Terverifikasi Tamu',
+            welcome_tag: 'LAYANAN KERAMAHAN DIGITAL',
+            welcome_title: 'Selamat Datang di Aegora Hotel',
+            welcome_desc: 'Saya <strong class="text-[#3B121C] font-semibold">Aegora Assist</strong>, asisten virtual pribadi Anda. Ada yang bisa saya bantu terkait reservasi kamar, jadwal sarapan, fasilitas spa, atau panduan menginap hari ini?',
+            recommended_title: 'PERTANYAAN REKOMENDASI',
+            input_placeholder: 'Tanyakan apa saja seputar reservasi, fasilitas, atau check-in...',
+            security_footer: 'Aegora Assist didukung data resmi PT Aegora • Enkripsi percakapan privat tamu hotel • Hubungi Front Desk ext. 0',
+            loading_text: 'Aegora Assist sedang mengetik...',
+            modal_staff_title: 'Hubungi Tim Resepsionis',
+            modal_staff_sub: 'Front Desk & Concierge Siaga 24/7',
+            modal_staff_desc: 'Anda dapat langsung tersambung dengan staf hotel kami melalui saluran cepat berikut:',
+            modal_intercom_title: 'Intercom Kamar',
+            modal_intercom_desc: 'Tekan angka 0 untuk Front Desk',
+            modal_wa_desc: '+62 812-3456-7890 (Respon Cepat)',
+            modal_request_title: 'Minta Panggilan Staf ke Kamar',
+            modal_request_sub: 'Kirim notifikasi ke Duty Manager',
+            modal_send_btn: 'Kirim →',
+            error_network: 'Mohon maaf, saat ini sistem concierge sedang mengalami kendala jaringan. Silakan hubungi langsung Front Desk di **ext. 0** atau coba beberapa saat lagi.',
+            confirm_new_chat: 'Mulai sesi percakapan baru?',
+            feedback_thank_you: '✓ Terima kasih atas masukannya!',
+            feedback_helpful: 'Apakah informasi ini membantu Anda?',
+            cards: {
+                room: {
+                    title: 'Pesan & Cek Kamar',
+                    desc: 'Ketersediaan, tipe Deluxe/Executive, tarif malam',
+                    prompt: 'Apakah tersedia kamar Deluxe atau Executive untuk malam ini?'
+                },
+                facility: {
+                    title: 'Fasilitas & Jadwal',
+                    desc: 'The Verandah, Infinity Pool Lt. 3, Spa, Gym',
+                    prompt: 'Jam berapa sarapan dibuka dan apa saja fasilitas yang tersedia di hotel?'
+                },
+                checkin: {
+                    title: 'Check-in & Tagihan',
+                    desc: 'Panduan 14.00 WIB, deposit, rincian e-folio',
+                    prompt: 'Bagaimana prosedur check-in, deposit, dan rincian e-folio tagihan?'
+                },
+                staff: {
+                    title: 'Hubungi Staf Langsung',
+                    desc: 'Sambungkan ke Resepsionis & Concierge hotel',
+                    prompt: 'Bagaimana cara menghubungi resepsionis hotel secara langsung?'
+                }
+            },
+            quickReplies: [
+                { icon: '🗝️', text: 'Bagaimana cara check-out ekspres?', prompt: 'Bagaimana cara check-out ekspres tanpa antre di front desk?' },
+                { icon: '🚐', text: 'Jadwal airport shuttle', prompt: 'Berapa jadwal airport shuttle dari hotel ke bandara hari ini?' },
+                { icon: '💆', text: 'Paket aromaterapi spa', prompt: 'Apa saja pilihan paket aromaterapi spa dan berapa tarifnya?' },
+                { icon: '📶', text: 'Password Wi-Fi hotel', prompt: 'Berapa nama jaringan dan password Wi-Fi hotel?' }
+            ]
+        },
+        en: {
+            nav_chat: 'Conversations',
+            nav_staff: 'Contact Staff',
+            sub_title: 'Aegora Assist Concierge',
+            sub_desc: 'Online • Instant response in seconds | PT Aegora Hospitality',
+            verified_guest: 'Verified Guest',
+            welcome_tag: 'DIGITAL HOSPITALITY SERVICE',
+            welcome_title: 'Welcome to Aegora Hotel',
+            welcome_desc: 'I am <strong class="text-[#3B121C] font-semibold">Aegora Assist</strong>, your personal AI concierge. How may I assist you with room reservations, dining schedules, spa facilities, or hotel guides today?',
+            recommended_title: 'RECOMMENDED QUESTIONS',
+            input_placeholder: 'Ask anything about room reservations, facilities, or check-in...',
+            security_footer: 'Aegora Assist powered by official Aegora data • Private guest encryption • Contact Front Desk ext. 0',
+            loading_text: 'Aegora Assist is typing...',
+            modal_staff_title: 'Contact Front Desk Team',
+            modal_staff_sub: 'Front Desk & Concierge on Duty 24/7',
+            modal_staff_desc: 'You can connect directly with our hotel team through the following channels:',
+            modal_intercom_title: 'In-Room Intercom',
+            modal_intercom_desc: 'Dial 0 for Front Desk',
+            modal_wa_desc: '+62 812-3456-7890 (Quick Response)',
+            modal_request_title: 'Request Staff Call to Room',
+            modal_request_sub: 'Dispatch request to Duty Manager',
+            modal_send_btn: 'Send →',
+            error_network: 'We apologize, but our concierge service is experiencing a temporary network delay. Please dial **ext. 0** directly for the Front Desk or try again in a moment.',
+            confirm_new_chat: 'Start a new conversation session?',
+            feedback_thank_you: '✓ Thank you for your feedback!',
+            feedback_helpful: 'Was this information helpful?',
+            cards: {
+                room: {
+                    title: 'Book & Check Rooms',
+                    desc: 'Availability, Deluxe/Executive suites, rates',
+                    prompt: 'Are there Deluxe or Executive rooms available for tonight?'
+                },
+                facility: {
+                    title: 'Facilities & Hours',
+                    desc: 'The Verandah, Level 3 Infinity Pool, Spa, Gym',
+                    prompt: 'What time is breakfast served and what facilities are available?'
+                },
+                checkin: {
+                    title: 'Check-in & Billing',
+                    desc: '14:00 guide, room deposit, e-folio billing',
+                    prompt: 'What are the check-in procedure, deposit, and e-folio details?'
+                },
+                staff: {
+                    title: 'Contact Staff Directly',
+                    desc: 'Connect to 24/7 Front Desk & Concierge',
+                    prompt: 'How can I directly contact the front desk staff or concierge team?'
+                }
+            },
+            quickReplies: [
+                { icon: '🗝️', text: 'How does express check-out work?', prompt: 'How does express check-out work without waiting at the front desk?' },
+                { icon: '🚐', text: 'Airport shuttle schedule', prompt: 'What is the airport shuttle schedule from the hotel today?' },
+                { icon: '💆', text: 'Spa aromatherapy packages', prompt: 'What spa aromatherapy packages are available and what are the rates?' },
+                { icon: '📶', text: 'Hotel Wi-Fi password', prompt: 'What is the network name and password for hotel Wi-Fi?' }
+            ]
+        }
+    };
+
+    // Apply Language Function
+    const applyLanguage = (lang) => {
+        currentLang = lang;
+        localStorage.setItem('aegora_lang', lang);
+
+        const dict = i18n[lang] || i18n.id;
+
+        // 1. Update Language Switcher UI Active Class
+        if (langIdBtn && langEnBtn) {
+            if (lang === 'id') {
+                langIdBtn.className = 'px-2.5 py-1 rounded-lg transition-all text-[#571724] font-bold bg-[#FAF5E8] shadow-xs';
+                langEnBtn.className = 'px-2.5 py-1 rounded-lg transition-all text-stone-500 hover:text-stone-800';
+            } else {
+                langEnBtn.className = 'px-2.5 py-1 rounded-lg transition-all text-[#571724] font-bold bg-[#FAF5E8] shadow-xs';
+                langIdBtn.className = 'px-2.5 py-1 rounded-lg transition-all text-stone-500 hover:text-stone-800';
+            }
+        }
+
+        // 2. Translate text elements by [data-i18n]
+        document.querySelectorAll('[data-i18n]').forEach((el) => {
+            const key = el.getAttribute('data-i18n');
+            if (dict[key]) {
+                el.innerHTML = dict[key];
+            }
+        });
+
+        // 3. Translate placeholder attributes
+        document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+            const key = el.getAttribute('data-i18n-placeholder');
+            if (dict[key]) {
+                el.setAttribute('placeholder', dict[key]);
+            }
+        });
+
+        // 4. Update Service Cards
+        document.querySelectorAll('.service-card-btn').forEach((card) => {
+            const key = card.getAttribute('data-card-key');
+            if (key && dict.cards && dict.cards[key]) {
+                const cardData = dict.cards[key];
+                const titleEl = card.querySelector('.service-card-title');
+                const descEl = card.querySelector('.service-card-desc');
+                if (titleEl) titleEl.textContent = cardData.title;
+                if (descEl) descEl.textContent = cardData.desc;
+                card.setAttribute('data-quick-prompt', cardData.prompt);
+            }
+        });
+
+        // 5. Update Quick Reply Chips
+        if (quickReplyContainer && dict.quickReplies) {
+            quickReplyContainer.innerHTML = dict.quickReplies.map((q) => `
+                <button type="button" 
+                        data-quick-prompt="${escapeHtml(q.prompt)}" 
+                        class="quick-reply-btn shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#FAF5E8] hover:bg-[#F0E6D2] active:scale-95 border border-[#DFCFA8] text-stone-700 font-medium transition shadow-2xs">
+                    <span>${q.icon}</span>
+                    <span>${escapeHtml(q.text)}</span>
+                </button>
+            `).join('');
+        }
+    };
+
+    // Attach Language Switcher Click Handlers
+    if (langIdBtn) {
+        langIdBtn.addEventListener('click', () => applyLanguage('id'));
+    }
+    if (langEnBtn) {
+        langEnBtn.addEventListener('click', () => applyLanguage('en'));
+    }
+
+    // Initialize Language from preference
+    applyLanguage(currentLang);
 
     // Helper: Scroll smoothly to bottom
     const scrollToBottom = () => {
@@ -67,6 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const timeStr = time || getCurrentTimeWIB();
         const contentHtml = data.rendered_html || escapeHtml(data.content || '').replace(/\n/g, '<br>');
         const facility = data.facility;
+        const dict = i18n[currentLang] || i18n.id;
 
         const div = document.createElement('div');
         div.className = 'flex items-start gap-3 w-full group animate-in fade-in slide-in-from-bottom-2 duration-200';
@@ -99,15 +291,12 @@ document.addEventListener('DOMContentLoaded', () => {
                                         <span>${escapeHtml(act.label)}</span>
                                     </button>
                                 `;
-                            } else {
-                                const icon = act.action === 'reception' ? '🛎️' : '🍽️';
-                                return `
-                                    <button type="button" data-action="${escapeHtml(act.action || '')}" class="facility-action-btn flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#F0E6D2] hover:bg-[#E7DBC2] text-[#4A1521] border border-[#DFCFA8] text-xs font-semibold transition active:scale-95">
-                                        <span>${icon}</span>
-                                        <span>${escapeHtml(act.label)}</span>
-                                    </button>
-                                `;
                             }
+                            return `
+                                <button type="button" data-action="${escapeHtml(act.action || '')}" class="facility-action-btn px-3.5 py-2 rounded-xl bg-[#EFE5D3] hover:bg-[#E5D7BF] text-stone-700 text-xs font-medium transition active:scale-95">
+                                    <span>${escapeHtml(act.label)}</span>
+                                </button>
+                            `;
                         }).join('')}
                     </div>
                 `;
@@ -139,17 +328,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         div.innerHTML = `
-            <div class="w-8 h-8 rounded-xl bg-[#571724] text-amber-200 flex items-center justify-center shadow-xs shrink-0 mt-0.5">
-                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
+            <div class="w-8 h-8 rounded-xl overflow-hidden border border-[#571724]/20 shadow-xs shrink-0 mt-0.5 bg-[#350711]">
+                <img src="/images/aegora-logo.jpg" alt="Aegora Assist" class="w-full h-full object-cover">
             </div>
             <div class="flex-1 max-w-3xl space-y-3">
                 <div class="bg-[#FDFBF7] border border-[#E8DFCB] rounded-2xl rounded-tl-xs p-5 sm:p-6 shadow-xs space-y-4">
                     <div class="flex items-center justify-between border-b border-[#F0E8D7] pb-2 text-xs">
                         <div class="flex items-center gap-2">
                             <span class="font-bold text-[#3B121C]">Aegora Assist</span>
-                            <span class="text-[10px] text-stone-400 font-medium">• AI Concierge Resmi</span>
+                            <span class="text-[10px] text-stone-400 font-medium">• ${currentLang === 'en' ? 'Official AI Concierge' : 'AI Concierge Resmi'}</span>
                         </div>
                         <span class="text-[11px] text-stone-400">${timeStr}</span>
                     </div>
@@ -161,14 +348,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${facilityHtml}
 
                     <div class="pt-2 flex items-center justify-between border-t border-[#F2EADB] text-[11px] text-stone-400">
-                        <span>Apakah informasi ini membantu Anda?</span>
+                        <span>${dict.feedback_helpful}</span>
                         <div class="flex items-center gap-2">
-                            <button type="button" class="feedback-btn hover:text-stone-700 p-1 rounded-md hover:bg-[#EFE8D6] transition" title="Membantu">
+                            <button type="button" class="feedback-btn hover:text-stone-700 p-1 rounded-md hover:bg-[#EFE8D6] transition" title="Helpful">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
                                 </svg>
                             </button>
-                            <button type="button" class="feedback-btn hover:text-stone-700 p-1 rounded-md hover:bg-[#EFE8D6] transition" title="Kurang Membantu">
+                            <button type="button" class="feedback-btn hover:text-stone-700 p-1 rounded-md hover:bg-[#EFE8D6] transition" title="Not Helpful">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76 1.04m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5" />
                                 </svg>
@@ -216,7 +403,8 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await window.axios.post('/api/chat/send', {
                 message: query,
-                session_id: sessionId
+                session_id: sessionId,
+                locale: currentLang
             });
 
             if (response.data && response.data.status === 'success') {
@@ -227,9 +415,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             console.error('Chat send error:', error);
+            const dict = i18n[currentLang] || i18n.id;
             appendAssistantMessage({
-                content: 'Mohon maaf, saat ini sistem concierge sedang mengalami sedikit kendala jaringan. Silakan hubungi langsung Front Desk di **ext. 0** atau coba beberapa saat lagi.',
-                rendered_html: '<p>Mohon maaf, saat ini sistem concierge sedang mengalami sedikit kendala jaringan. Silakan hubungi langsung Front Desk di <strong>ext. 0</strong> atau coba beberapa saat lagi.</p>',
+                content: dict.error_network,
+                rendered_html: `<p>${dict.error_network}</p>`,
                 facility: null
             });
         } finally {
@@ -272,9 +461,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (actionBtn) {
             const action = actionBtn.getAttribute('data-action');
             if (action === 'menu') {
-                handleSendMessage('Bisa lihat menu lengkap di The Verandah Restaurant dan daftar harganya?');
+                const prompt = currentLang === 'en'
+                    ? 'Could you provide the full dining menu and prices at The Verandah Restaurant?'
+                    : 'Bisa lihat menu lengkap di The Verandah Restaurant dan daftar harganya?';
+                handleSendMessage(prompt);
             } else if (action === 'breakfast') {
-                handleSendMessage('Bagaimana cara reservasi meja sarapan pagi untuk 2 orang besok?');
+                const prompt = currentLang === 'en'
+                    ? 'How can I reserve a breakfast table for 2 guests tomorrow morning?'
+                    : 'Bagaimana cara reservasi meja sarapan pagi untuk 2 orang besok?';
+                handleSendMessage(prompt);
             } else if (action === 'reception') {
                 openStaffModal();
             }
@@ -284,10 +479,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Feedback thumbs up / down
         const fbBtn = e.target.closest('.feedback-btn');
         if (fbBtn) {
-            fbBtn.classList.toggle('text-[#571724]');
-            fbBtn.classList.toggle('font-bold');
+            const dict = i18n[currentLang] || i18n.id;
             const parent = fbBtn.parentElement;
-            parent.innerHTML = `<span class="text-[11px] text-emerald-700 font-medium">✓ Terima kasih atas masukannya!</span>`;
+            parent.innerHTML = `<span class="text-[11px] text-emerald-700 font-medium">${dict.feedback_thank_you}</span>`;
             return;
         }
     });
@@ -311,18 +505,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (requestStaffChatBtn) {
         requestStaffChatBtn.addEventListener('click', () => {
             closeStaffModal();
-            handleSendMessage('Halo, saya ingin meminta staf resepsionis atau duty manager untuk menghubungi kamar saya.');
+            const prompt = currentLang === 'en'
+                ? 'Hello, I would like to request hotel front desk staff or the duty manager to call my room.'
+                : 'Halo, saya ingin meminta staf resepsionis atau duty manager untuk menghubungi kamar saya.';
+            handleSendMessage(prompt);
         });
     }
 
     // New Chat Button Handler
     if (newChatBtn) {
         newChatBtn.addEventListener('click', async () => {
-            if (confirm('Mulai sesi percakapan baru?')) {
+            const dict = i18n[currentLang] || i18n.id;
+            if (confirm(dict.confirm_new_chat)) {
                 sessionId = 'aegora_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
                 localStorage.setItem('aegora_session_id', sessionId);
-                
-                // Clear extra messages and keep only the welcome card & initial demo messages or reset
                 window.location.reload();
             }
         });
@@ -331,13 +527,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // Attachment & Mic info toasts
     if (attachBtn) {
         attachBtn.addEventListener('click', () => {
-            alert('Fitur unggah dokumen/foto reservasi siap diaktifkan saat check-in e-voucher.');
+            alert(currentLang === 'en'
+                ? 'Document / photo upload feature will be available for online voucher check-in.'
+                : 'Fitur unggah dokumen/foto reservasi siap diaktifkan saat check-in e-voucher.');
         });
     }
 
     if (voiceBtn) {
         voiceBtn.addEventListener('click', () => {
-            alert('Fitur perintah suara (voice message) sedang disiapkan untuk pembaruan berikutnya.');
+            alert(currentLang === 'en'
+                ? 'Voice message feature is currently in preparation for upcoming update.'
+                : 'Fitur perintah suara (voice message) sedang disiapkan untuk pembaruan berikutnya.');
         });
     }
 });

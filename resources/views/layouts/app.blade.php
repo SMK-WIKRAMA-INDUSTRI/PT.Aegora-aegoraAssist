@@ -58,10 +58,8 @@
 
             <!-- Loading Indicator (Hidden by default) -->
             <div id="ai-loading-indicator" class="hidden flex items-start gap-3 pt-2">
-                <div class="w-8 h-8 rounded-lg bg-[#571724] text-amber-200 flex items-center justify-center shadow-sm shrink-0">
-                    <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
+                <div class="w-8 h-8 rounded-xl overflow-hidden border border-[#571724]/20 shadow-xs shrink-0 bg-[#350711]">
+                    <img src="{{ asset('images/aegora-logo.jpg') }}" alt="Aegora Assist" class="w-full h-full object-cover">
                 </div>
                 <div class="bg-[#FBF8F1] border border-[#E9DFCE] rounded-2xl rounded-tl-sm px-5 py-3 shadow-xs">
                     <div class="flex items-center gap-1.5">
@@ -95,8 +93,8 @@
                         🏨
                     </div>
                     <div>
-                        <h3 class="font-serif text-lg font-bold text-[#3B121C]">Hubungi Tim Resepsionis</h3>
-                        <p class="text-xs text-stone-500">Front Desk & Concierge Siaga 24/7</p>
+                        <h3 class="font-serif text-lg font-bold text-[#3B121C]" data-i18n="modal_staff_title">Hubungi Tim Resepsionis</h3>
+                        <p class="text-xs text-stone-500" data-i18n="modal_staff_sub">Front Desk & Concierge Siaga 24/7</p>
                     </div>
                 </div>
                 <button type="button" id="close-staff-modal" class="text-stone-400 hover:text-stone-700 p-1 rounded-lg">
@@ -106,7 +104,7 @@
                 </button>
             </div>
             
-            <p class="text-sm text-stone-600 leading-relaxed">
+            <p class="text-sm text-stone-600 leading-relaxed" data-i18n="modal_staff_desc">
                 Anda dapat langsung tersambung dengan staf hotel kami melalui saluran cepat berikut:
             </p>
 
@@ -115,8 +113,8 @@
                     <div class="flex items-center gap-3">
                         <span class="text-lg">📞</span>
                         <div>
-                            <p class="font-semibold text-[#3B121C]">Intercom Kamar</p>
-                            <p class="text-xs text-stone-500">Tekan angka 0 untuk Front Desk</p>
+                            <p class="font-semibold text-[#3B121C]" data-i18n="modal_intercom_title">Intercom Kamar</p>
+                            <p class="text-xs text-stone-500" data-i18n="modal_intercom_desc">Tekan angka 0 untuk Front Desk</p>
                         </div>
                     </div>
                     <span class="text-xs font-semibold text-[#571724] bg-[#F7E1D7] px-2.5 py-1 rounded-full">Ext. 0</span>
@@ -127,7 +125,7 @@
                         <span class="text-lg">💬</span>
                         <div>
                             <p class="font-semibold text-[#3B121C]">WhatsApp Concierge</p>
-                            <p class="text-xs text-stone-500">+62 812-3456-7890 (Respon Cepat)</p>
+                            <p class="text-xs text-stone-500" data-i18n="modal_wa_desc">+62 812-3456-7890 (Respon Cepat)</p>
                         </div>
                     </div>
                     <span class="text-xs font-semibold text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded-full">WhatsApp</span>
@@ -137,11 +135,11 @@
                     <div class="flex items-center gap-3">
                         <span class="text-lg">🛎️</span>
                         <div class="text-left">
-                            <p class="font-semibold">Minta Panggilan Staf ke Kamar</p>
-                            <p class="text-xs text-amber-200/80">Kirim notifikasi ke Duty Manager</p>
+                            <p class="font-semibold" data-i18n="modal_request_title">Minta Panggilan Staf ke Kamar</p>
+                            <p class="text-xs text-amber-200/80" data-i18n="modal_request_sub">Kirim notifikasi ke Duty Manager</p>
                         </div>
                     </div>
-                    <span class="text-xs font-medium text-amber-200">Kirim &rarr;</span>
+                    <span class="text-xs font-medium text-amber-200" data-i18n="modal_send_btn">Kirim &rarr;</span>
                 </button>
             </div>
         </div>

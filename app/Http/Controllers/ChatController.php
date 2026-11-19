@@ -26,8 +26,10 @@ class ChatController extends Controller
         $validated = $request->validate([
             'message' => 'required|string|min:1|max:2000',
             'session_id' => 'nullable|string|max:100',
+            'locale' => 'nullable|string|in:id,en',
         ]);
 
+        $locale = $validated['locale'] ?? 'id';
         $sessionId = $validated['session_id'] ?? (string) Str::uuid();
 
         // Retrieve or initialize conversation
@@ -58,8 +60,8 @@ class ChatController extends Controller
             ])
             ->toArray();
 
-        // Generate response via Service
-        $aiResult = $this->chatService->generateResponse($validated['message'], $history);
+        // Generate response via Service with localized persona
+        $aiResult = $this->chatService->generateResponse($validated['message'], $history, $locale);
 
         // Save Assistant Message
         $assistantMessage = Message::create([
@@ -73,6 +75,8 @@ class ChatController extends Controller
             'status' => 'success',
             'data' => [
                 'conversation_id' => $conversation->id,
+                'session_id' => $conversation->session_id,
+                'locale' => $locale,
                 'session_id' => $conversation->session_id,
                 'user_message' => [
                     'id' => $userMessage->id,

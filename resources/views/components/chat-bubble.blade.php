@@ -23,10 +23,8 @@
 @else
     <div class="flex items-start gap-3 w-full group animate-in fade-in slide-in-from-bottom-2 duration-200">
         <!-- AI Avatar -->
-        <div class="w-8 h-8 rounded-xl bg-[#571724] text-amber-200 flex items-center justify-center shadow-xs shrink-0 mt-0.5">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
+        <div class="w-8 h-8 rounded-xl overflow-hidden border border-[#571724]/20 shadow-xs shrink-0 mt-0.5 bg-[#350711]">
+            <img src="{{ asset('images/aegora-logo.jpg') }}" alt="Aegora Assist" class="w-full h-full object-cover">
         </div>
 
         <div class="flex-1 max-w-3xl space-y-3">
