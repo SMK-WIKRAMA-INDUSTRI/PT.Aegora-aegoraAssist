@@ -20,12 +20,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeStaffModalBtn = document.getElementById('close-staff-modal');
     const requestStaffChatBtn = document.getElementById('request-staff-chat-btn');
     const attachBtn = document.getElementById('attach-btn');
+    const pdfFileInput = document.getElementById('pdf-file-input');
     const voiceBtn = document.getElementById('voice-btn');
     const langIdBtn = document.getElementById('lang-id-btn');
     const langEnBtn = document.getElementById('lang-en-btn');
+    const quickReplyWrapper = document.getElementById('quick-reply-wrapper');
     const quickReplyContainer = document.getElementById('quick-reply-container');
+    const bookingModal = document.getElementById('booking-modal');
+    const closeBookingModalBtn = document.getElementById('close-booking-modal');
+    const bookingForm = document.getElementById('booking-form');
 
     let isProcessing = false;
+    let hasUserMessaged = false;
 
     // Bilingual Dictionaries
     const i18n = {
@@ -41,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
             recommended_title: 'PERTANYAAN REKOMENDASI',
             input_placeholder: 'Tanyakan apa saja seputar reservasi, fasilitas, atau check-in...',
             security_footer: 'Aegora Assist didukung data resmi PT Aegora • Enkripsi percakapan privat tamu hotel • Hubungi Front Desk ext. 0',
-            loading_text: 'Aegora Assist sedang mengetik...',
+            loading_text: 'Aegora Assist sedang merespons...',
             modal_staff_title: 'Hubungi Tim Resepsionis',
             modal_staff_sub: 'Front Desk & Concierge Siaga 24/7',
             modal_staff_desc: 'Anda dapat langsung tersambung dengan staf hotel kami melalui saluran cepat berikut:',
@@ -59,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 room: {
                     title: 'Pesan & Cek Kamar',
                     desc: 'Ketersediaan, tipe Deluxe/Executive, tarif malam',
-                    prompt: 'Apakah tersedia kamar Deluxe atau Executive untuk malam ini?'
+                    prompt: 'Saya ingin memesan kamar untuk menginap'
                 },
                 facility: {
                     title: 'Fasilitas & Jadwal',
@@ -78,10 +84,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             },
             quickReplies: [
-                { icon: '🗝️', text: 'Bagaimana cara check-out ekspres?', prompt: 'Bagaimana cara check-out ekspres tanpa antre di front desk?' },
-                { icon: '🚐', text: 'Jadwal airport shuttle', prompt: 'Berapa jadwal airport shuttle dari hotel ke bandara hari ini?' },
-                { icon: '💆', text: 'Paket aromaterapi spa', prompt: 'Apa saja pilihan paket aromaterapi spa dan berapa tarifnya?' },
-                { icon: '📶', text: 'Password Wi-Fi hotel', prompt: 'Berapa nama jaringan dan password Wi-Fi hotel?' }
+                { icon: '🧹', text: 'Minta 2 handuk ke kamar 304', prompt: 'Minta tambahan 2 handuk dan sikat gigi ke kamar 304' },
+                { icon: '🛎️', text: 'Pesan Kamar Hotel', prompt: 'Saya ingin pesan kamar hotel sekarang' },
+                { icon: '🍽️', text: 'Pesan Nasi Goreng ke kamar', prompt: 'Pesan 1 Nasi Goreng dan Es Teh ke kamar 201' },
+                { icon: '🎉', text: 'Rencana Honeymoon / Ulang Tahun', prompt: 'Saya menginap besok untuk merayakan ulang tahun istri saya' }
             ]
         },
         en: {
@@ -96,7 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
             recommended_title: 'RECOMMENDED QUESTIONS',
             input_placeholder: 'Ask anything about room reservations, facilities, or check-in...',
             security_footer: 'Aegora Assist powered by official Aegora data • Private guest encryption • Contact Front Desk ext. 0',
-            loading_text: 'Aegora Assist is typing...',
+            loading_text: 'Aegora Assist is responding...',
             modal_staff_title: 'Contact Front Desk Team',
             modal_staff_sub: 'Front Desk & Concierge on Duty 24/7',
             modal_staff_desc: 'You can connect directly with our hotel team through the following channels:',
@@ -114,7 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 room: {
                     title: 'Book & Check Rooms',
                     desc: 'Availability, Deluxe/Executive suites, rates',
-                    prompt: 'Are there Deluxe or Executive rooms available for tonight?'
+                    prompt: 'I would like to book a hotel room'
                 },
                 facility: {
                     title: 'Facilities & Hours',
@@ -133,10 +139,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             },
             quickReplies: [
-                { icon: '🗝️', text: 'How does express check-out work?', prompt: 'How does express check-out work without waiting at the front desk?' },
-                { icon: '🚐', text: 'Airport shuttle schedule', prompt: 'What is the airport shuttle schedule from the hotel today?' },
-                { icon: '💆', text: 'Spa aromatherapy packages', prompt: 'What spa aromatherapy packages are available and what are the rates?' },
-                { icon: '📶', text: 'Hotel Wi-Fi password', prompt: 'What is the network name and password for hotel Wi-Fi?' }
+                { icon: '🧹', text: 'Send towels to room 304', prompt: 'Please send 2 extra towels and toothbrushes to room 304' },
+                { icon: '🛎️', text: 'Book a Hotel Room', prompt: 'I want to book a hotel room now' },
+                { icon: '🍽️', text: 'Room service dining', prompt: 'Order 1 Fried Rice and Iced Tea to room 201' },
+                { icon: '🎉', text: 'Anniversary celebration', prompt: 'I am staying tomorrow to celebrate my wife birthday' }
             ]
         }
     };
@@ -148,7 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const dict = i18n[lang] || i18n.id;
 
-        // 1. Update Language Switcher UI Active Class
+        // Update Switcher UI
         if (langIdBtn && langEnBtn) {
             if (lang === 'id') {
                 langIdBtn.className = 'px-2.5 py-1 rounded-lg transition-all text-[#571724] font-bold bg-[#FAF5E8] shadow-xs';
@@ -159,23 +165,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // 2. Translate text elements by [data-i18n]
+        // Translate text elements
         document.querySelectorAll('[data-i18n]').forEach((el) => {
             const key = el.getAttribute('data-i18n');
-            if (dict[key]) {
-                el.innerHTML = dict[key];
-            }
+            if (dict[key]) el.innerHTML = dict[key];
         });
 
-        // 3. Translate placeholder attributes
+        // Translate placeholders
         document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
             const key = el.getAttribute('data-i18n-placeholder');
-            if (dict[key]) {
-                el.setAttribute('placeholder', dict[key]);
-            }
+            if (dict[key]) el.setAttribute('placeholder', dict[key]);
         });
 
-        // 4. Update Service Cards
+        // Update Service Cards
         document.querySelectorAll('.service-card-btn').forEach((card) => {
             const key = card.getAttribute('data-card-key');
             if (key && dict.cards && dict.cards[key]) {
@@ -188,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // 5. Update Quick Reply Chips
+        // Update Quick Reply Chips
         if (quickReplyContainer && dict.quickReplies) {
             quickReplyContainer.innerHTML = dict.quickReplies.map((q) => `
                 <button type="button" 
@@ -201,18 +203,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Attach Language Switcher Click Handlers
-    if (langIdBtn) {
-        langIdBtn.addEventListener('click', () => applyLanguage('id'));
-    }
-    if (langEnBtn) {
-        langEnBtn.addEventListener('click', () => applyLanguage('en'));
-    }
-
-    // Initialize Language from preference
+    if (langIdBtn) langIdBtn.addEventListener('click', () => applyLanguage('id'));
+    if (langEnBtn) langEnBtn.addEventListener('click', () => applyLanguage('en'));
     applyLanguage(currentLang);
 
-    // Helper: Scroll smoothly to bottom
+    // Function to hide quick reply recommendations once a message has been sent
+    const hideQuickReplies = () => {
+        if (quickReplyWrapper && !hasUserMessaged) {
+            hasUserMessaged = true;
+            quickReplyWrapper.style.opacity = '0';
+            quickReplyWrapper.style.transform = 'translateY(10px)';
+            setTimeout(() => {
+                quickReplyWrapper.classList.add('hidden');
+            }, 300);
+        }
+    };
+
+    // Scroll helper
     const scrollToBottom = () => {
         setTimeout(() => {
             window.scrollTo({
@@ -222,7 +229,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 80);
     };
 
-    // Helper: Format current time in WIB
     const getCurrentTimeWIB = () => {
         const now = new Date();
         const hours = String(now.getHours()).padStart(2, '0');
@@ -230,8 +236,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${hours}:${minutes} WIB`;
     };
 
-    // Render User Message Bubble
+    // Render User Bubble
     const appendUserMessage = (text, time = null) => {
+        hideQuickReplies();
         const timeStr = time || getCurrentTimeWIB();
         const div = document.createElement('div');
         div.className = 'flex justify-end w-full group animate-in fade-in slide-in-from-bottom-2 duration-200';
@@ -253,12 +260,20 @@ document.addEventListener('DOMContentLoaded', () => {
         scrollToBottom();
     };
 
-    // Render AI Message Bubble
+    // Render Assistant Bubble
     const appendAssistantMessage = (data, time = null) => {
         const timeStr = time || getCurrentTimeWIB();
         const contentHtml = data.rendered_html || escapeHtml(data.content || '').replace(/\n/g, '<br>');
         const facility = data.facility;
+        const specialAction = data.special_action;
         const dict = i18n[currentLang] || i18n.id;
+
+        // Check if action triggers booking form
+        if (specialAction && specialAction.type === 'show_booking_form') {
+            setTimeout(() => {
+                openBookingModal();
+            }, 600);
+        }
 
         const div = document.createElement('div');
         div.className = 'flex items-start gap-3 w-full group animate-in fade-in slide-in-from-bottom-2 duration-200';
@@ -327,6 +342,22 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }
 
+        // Special Booking Action CTA
+        let bookingCtaHtml = '';
+        if (specialAction && specialAction.type === 'show_booking_form') {
+            bookingCtaHtml = `
+                <div class="mt-3 p-3 bg-[#F4EDE0] border border-[#DFCFA8] rounded-2xl flex items-center justify-between">
+                    <div>
+                        <p class="font-bold text-xs text-[#3B121C]">Formulir Reservasi Tamu Siap</p>
+                        <p class="text-[10px] text-stone-500">Isi data kamar dan tanggal menginap Anda</p>
+                    </div>
+                    <button type="button" class="open-booking-btn px-3.5 py-1.5 rounded-xl bg-[#571724] text-white font-bold text-xs hover:bg-[#430F1A] transition">
+                        Buka Formulir
+                    </button>
+                </div>
+            `;
+        }
+
         div.innerHTML = `
             <div class="w-8 h-8 rounded-xl overflow-hidden border border-[#571724]/20 shadow-xs shrink-0 mt-0.5 bg-[#350711]">
                 <img src="/images/aegora-logo.jpg" alt="Aegora Assist" class="w-full h-full object-cover">
@@ -345,6 +376,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${contentHtml}
                     </div>
 
+                    ${bookingCtaHtml}
                     ${facilityHtml}
 
                     <div class="pt-2 flex items-center justify-between border-t border-[#F2EADB] text-[11px] text-stone-400">
@@ -370,16 +402,9 @@ document.addEventListener('DOMContentLoaded', () => {
         scrollToBottom();
     };
 
-    // Helper: HTML escaping
     function escapeHtml(text) {
         if (!text) return '';
-        const map = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#039;'
-        };
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
         return text.replace(/[&<>"']/g, m => map[m]);
     }
 
@@ -393,10 +418,10 @@ document.addEventListener('DOMContentLoaded', () => {
         chatInput.disabled = true;
         sendBtn.disabled = true;
 
-        // Render user message immediately
+        // Render user message & hide recommendations
         appendUserMessage(query);
 
-        // Show loading indicator
+        // Show loading
         loadingIndicator.classList.remove('hidden');
         scrollToBottom();
 
@@ -431,13 +456,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Submit form listener
+    // Form submit
     chatForm.addEventListener('submit', (e) => {
         e.preventDefault();
         handleSendMessage();
     });
 
-    // Enter key submit
     chatInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -445,14 +469,156 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Click handler for Quick Reply Chips and Service Cards
+    // Upload PDF File Handler
+    if (attachBtn && pdfFileInput) {
+        attachBtn.addEventListener('click', () => {
+            pdfFileInput.click();
+        });
+
+        pdfFileInput.addEventListener('change', async () => {
+            const file = pdfFileInput.files[0];
+            if (!file) return;
+
+            if (file.type !== 'application/pdf') {
+                alert('Silakan pilih file berformat PDF.');
+                pdfFileInput.value = '';
+                return;
+            }
+
+            // Append User message for uploading
+            appendUserMessage(`📄 Mengunggah Dokumen PDF: ${file.name}`);
+            loadingIndicator.classList.remove('hidden');
+            scrollToBottom();
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('session_id', sessionId);
+            formData.append('locale', currentLang);
+
+            try {
+                const response = await window.axios.post('/api/chat/upload-pdf', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+
+                if (response.data && response.data.status === 'success') {
+                    appendAssistantMessage({
+                        content: response.data.data.assistant_reply,
+                        rendered_html: response.data.data.rendered_html,
+                    });
+                }
+            } catch (err) {
+                console.error('Upload error:', err);
+                appendAssistantMessage({
+                    content: 'Gagal mengunggah dokumen PDF. Pastikan ukuran file di bawah 10MB.',
+                    rendered_html: '<p>Gagal mengunggah dokumen PDF. Pastikan ukuran file di bawah 10MB.</p>',
+                });
+            } finally {
+                loadingIndicator.classList.add('hidden');
+                pdfFileInput.value = '';
+                scrollToBottom();
+            }
+        });
+    }
+
+    // Modal Booking Handlers
+    const openBookingModal = () => {
+        if (bookingModal) {
+            bookingModal.classList.remove('hidden');
+            // Set default dates
+            const today = new Date();
+            const tomorrow = new Date();
+            tomorrow.setDate(today.getDate() + 1);
+
+            const checkinEl = document.getElementById('bkg-checkin');
+            const checkoutEl = document.getElementById('bkg-checkout');
+            if (checkinEl && !checkinEl.value) checkinEl.value = today.toISOString().split('T')[0];
+            if (checkoutEl && !checkoutEl.value) checkoutEl.value = tomorrow.toISOString().split('T')[0];
+        }
+    };
+
+    const closeBookingModal = () => {
+        if (bookingModal) bookingModal.classList.add('hidden');
+    };
+
+    if (closeBookingModalBtn) closeBookingModalBtn.addEventListener('click', closeBookingModal);
+    if (bookingModal) {
+        bookingModal.addEventListener('click', (e) => {
+            if (e.target === bookingModal) closeBookingModal();
+        });
+    }
+
+    // Submit Booking Form
+    if (bookingForm) {
+        bookingForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = document.getElementById('bkg-submit-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Mengirim Reservasi...';
+
+            const payload = {
+                session_id: sessionId,
+                guest_name: document.getElementById('bkg-name').value,
+                guest_phone: document.getElementById('bkg-phone').value,
+                guest_email: document.getElementById('bkg-email').value,
+                room_type: document.getElementById('bkg-room-type').value,
+                check_in_date: document.getElementById('bkg-checkin').value,
+                check_out_date: document.getElementById('bkg-checkout').value,
+                guest_count: parseInt(document.getElementById('bkg-guests').value) || 2,
+                special_requests: document.getElementById('bkg-requests').value,
+            };
+
+            try {
+                const response = await window.axios.post('/api/chat/booking', payload);
+                if (response.data && response.data.status === 'success') {
+                    closeBookingModal();
+                    const d = response.data.data;
+
+                    const voucherHtml = `
+                        <div class="mt-2 bg-[#F6F0E0] border border-[#DECFA8] rounded-2xl p-4 space-y-2 shadow-xs">
+                            <div class="flex items-center justify-between border-b border-[#E8DEC2] pb-2">
+                                <span class="font-bold text-xs text-[#571724]">🎟️ BUKTI RESERVASI KAMAR</span>
+                                <span class="font-mono text-xs font-bold text-[#571724] bg-[#EFE3CF] px-2 py-0.5 rounded">${d.booking_code}</span>
+                            </div>
+                            <div class="text-xs space-y-1 text-stone-700">
+                                <p><strong>Nama Tamu:</strong> ${escapeHtml(d.guest_name)}</p>
+                                <p><strong>Tipe Kamar:</strong> ${escapeHtml(d.room_type)}</p>
+                                <p><strong>Periode:</strong> ${escapeHtml(d.check_in)} – ${escapeHtml(d.check_out)}</p>
+                                <p><strong>No. WhatsApp:</strong> ${escapeHtml(d.phone)}</p>
+                            </div>
+                            <div class="pt-2 text-[11px] text-emerald-800 font-semibold border-t border-[#E8DEC2]">
+                                ✓ Data telah diteruskan ke Tim Reservasi Hotel. Kami akan segera menghubungi WhatsApp Anda untuk konfirmasi pembayaran.
+                            </div>
+                        </div>
+                    `;
+
+                    appendAssistantMessage({
+                        content: `Voucher Booking Terbit: ${d.booking_code}`,
+                        rendered_html: voucherHtml,
+                    });
+                }
+            } catch (err) {
+                console.error('Booking submit error:', err);
+                alert('Gagal mengirim formulir booking. Mohon periksa kelengkapan data.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Kirim Reservasi ke Pihak Hotel';
+            }
+        });
+    }
+
+    // Click delegation
     document.addEventListener('click', (e) => {
+        // Quick prompt click
         const target = e.target.closest('[data-quick-prompt]');
         if (target) {
             const prompt = target.getAttribute('data-quick-prompt');
-            if (prompt) {
-                handleSendMessage(prompt);
-            }
+            if (prompt) handleSendMessage(prompt);
+            return;
+        }
+
+        // Open booking modal button
+        if (e.target.closest('.open-booking-btn')) {
+            openBookingModal();
             return;
         }
 
@@ -461,22 +627,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (actionBtn) {
             const action = actionBtn.getAttribute('data-action');
             if (action === 'menu') {
-                const prompt = currentLang === 'en'
-                    ? 'Could you provide the full dining menu and prices at The Verandah Restaurant?'
-                    : 'Bisa lihat menu lengkap di The Verandah Restaurant dan daftar harganya?';
-                handleSendMessage(prompt);
+                handleSendMessage(currentLang === 'en' ? 'Could you provide the menu at The Verandah Restaurant?' : 'Bisa lihat menu di The Verandah Restaurant?');
             } else if (action === 'breakfast') {
-                const prompt = currentLang === 'en'
-                    ? 'How can I reserve a breakfast table for 2 guests tomorrow morning?'
-                    : 'Bagaimana cara reservasi meja sarapan pagi untuk 2 orang besok?';
-                handleSendMessage(prompt);
+                handleSendMessage(currentLang === 'en' ? 'How can I reserve a breakfast table?' : 'Bagaimana cara reservasi meja sarapan?');
             } else if (action === 'reception') {
                 openStaffModal();
             }
             return;
         }
 
-        // Feedback thumbs up / down
+        // Feedback thumbs
         const fbBtn = e.target.closest('.feedback-btn');
         if (fbBtn) {
             const dict = i18n[currentLang] || i18n.id;
@@ -486,50 +646,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Modal Staff Handlers
-    const openStaffModal = () => {
-        staffModal.classList.remove('hidden');
-    };
-
-    const closeStaffModal = () => {
-        staffModal.classList.add('hidden');
-    };
+    // Staff modal
+    const openStaffModal = () => { if (staffModal) staffModal.classList.remove('hidden'); };
+    const closeStaffModal = () => { if (staffModal) staffModal.classList.add('hidden'); };
 
     if (navStaffBtn) navStaffBtn.addEventListener('click', openStaffModal);
     if (closeStaffModalBtn) closeStaffModalBtn.addEventListener('click', closeStaffModal);
-
-    staffModal.addEventListener('click', (e) => {
-        if (e.target === staffModal) closeStaffModal();
-    });
+    if (staffModal) {
+        staffModal.addEventListener('click', (e) => {
+            if (e.target === staffModal) closeStaffModal();
+        });
+    }
 
     if (requestStaffChatBtn) {
         requestStaffChatBtn.addEventListener('click', () => {
             closeStaffModal();
-            const prompt = currentLang === 'en'
-                ? 'Hello, I would like to request hotel front desk staff or the duty manager to call my room.'
-                : 'Halo, saya ingin meminta staf resepsionis atau duty manager untuk menghubungi kamar saya.';
-            handleSendMessage(prompt);
+            handleSendMessage(currentLang === 'en'
+                ? 'Hello, I would like to request hotel staff to call my room.'
+                : 'Halo, saya ingin meminta staf resepsionis atau duty manager untuk menghubungi kamar saya.');
         });
     }
 
     // New Chat Button Handler
     if (newChatBtn) {
-        newChatBtn.addEventListener('click', async () => {
+        newChatBtn.addEventListener('click', () => {
             const dict = i18n[currentLang] || i18n.id;
             if (confirm(dict.confirm_new_chat)) {
                 sessionId = 'aegora_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
                 localStorage.setItem('aegora_session_id', sessionId);
                 window.location.reload();
             }
-        });
-    }
-
-    // Attachment & Mic info toasts
-    if (attachBtn) {
-        attachBtn.addEventListener('click', () => {
-            alert(currentLang === 'en'
-                ? 'Document / photo upload feature will be available for online voucher check-in.'
-                : 'Fitur unggah dokumen/foto reservasi siap diaktifkan saat check-in e-voucher.');
         });
     }
 

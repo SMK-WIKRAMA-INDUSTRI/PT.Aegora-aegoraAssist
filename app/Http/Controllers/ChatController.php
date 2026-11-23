@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ChatDocument;
 use App\Models\Conversation;
+use App\Models\GuestBooking;
 use App\Models\Message;
 use App\Services\NetraChatService;
+use App\Services\PdfTextExtractor;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -19,12 +22,20 @@ class ChatController extends Controller
     }
 
     /**
+     * Show the main interactive AI Concierge Chat view.
+     */
+    public function index()
+    {
+        return view('chat');
+    }
+
+    /**
      * Handle incoming user message and generate AI response.
      */
     public function sendMessage(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'message' => 'required|string|min:1|max:2000',
+            'message' => 'required|string|min:1|max:3000',
             'session_id' => 'nullable|string|max:100',
             'locale' => 'nullable|string|in:id,en',
         ]);
@@ -51,7 +62,7 @@ class ChatController extends Controller
         // Load conversation context history
         $history = $conversation->messages()
             ->latest('id')
-            ->take(10)
+            ->take(12)
             ->get()
             ->reverse()
             ->map(fn ($msg) => [
@@ -60,8 +71,8 @@ class ChatController extends Controller
             ])
             ->toArray();
 
-        // Generate response via Service with localized persona
-        $aiResult = $this->chatService->generateResponse($validated['message'], $history, $locale);
+        // Generate response via Service with localized persona & function calling
+        $aiResult = $this->chatService->generateResponse($validated['message'], $history, $locale, $sessionId);
 
         // Save Assistant Message
         $assistantMessage = Message::create([
@@ -77,7 +88,6 @@ class ChatController extends Controller
                 'conversation_id' => $conversation->id,
                 'session_id' => $conversation->session_id,
                 'locale' => $locale,
-                'session_id' => $conversation->session_id,
                 'user_message' => [
                     'id' => $userMessage->id,
                     'role' => 'user',
@@ -90,9 +100,126 @@ class ChatController extends Controller
                     'content' => $assistantMessage->content,
                     'rendered_html' => Str::markdown($assistantMessage->content),
                     'facility' => $assistantMessage->facility_data,
+                    'special_action' => $aiResult['special_action'] ?? null,
                     'time' => $assistantMessage->created_at->format('H:i') . ' WIB',
                     'source' => $aiResult['source'] ?? 'simulated',
                 ],
+            ],
+        ]);
+    }
+
+    /**
+     * Submit Interactive Booking Form directly from Chat.
+     */
+    public function submitBooking(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'session_id' => 'required|string',
+            'guest_name' => 'required|string|max:100',
+            'guest_phone' => 'required|string|max:30',
+            'guest_email' => 'nullable|email|max:100',
+            'room_type' => 'required|string',
+            'check_in_date' => 'required|date',
+            'check_out_date' => 'required|date|after:check_in_date',
+            'guest_count' => 'required|integer|min:1|max:10',
+            'special_requests' => 'nullable|string|max:500',
+        ]);
+
+        $bookingCode = 'AEG-BKG-' . strtoupper(Str::random(6));
+
+        $booking = GuestBooking::create([
+            'booking_code' => $bookingCode,
+            'session_id' => $validated['session_id'],
+            'guest_name' => $validated['guest_name'],
+            'guest_phone' => $validated['guest_phone'],
+            'guest_email' => $validated['guest_email'] ?? null,
+            'room_type' => $validated['room_type'],
+            'check_in_date' => $validated['check_in_date'],
+            'check_out_date' => $validated['check_out_date'],
+            'guest_count' => $validated['guest_count'],
+            'special_requests' => $validated['special_requests'] ?? null,
+            'status' => 'pending_hotel_contact',
+        ]);
+
+        // Tambahkan konfirmasi ke dalam riwayat obrolan
+        $conversation = Conversation::where('session_id', $validated['session_id'])->first();
+        if ($conversation) {
+            Message::create([
+                'conversation_id' => $conversation->id,
+                'role' => 'assistant',
+                'content' => "✅ **Formulir Booking Berhasil Terkirim!**\n\nKode Booking Resmi Anda: **`{$bookingCode}`**\nNama Tamu: **{$booking->guest_name}**\nTipe Kamar: **{$booking->room_type}**\nTanggal: **" . $booking->check_in_date->format('d M Y') . " s/d " . $booking->check_out_date->format('d M Y') . "**\n\n*Pihak Hotel Aegora akan segera menghubungi WhatsApp Anda ({$booking->guest_phone}) untuk konfirmasi pembayaran dan rincian kamar.*",
+            ]);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'booking_code' => $booking->booking_code,
+                'guest_name' => $booking->guest_name,
+                'room_type' => $booking->room_type,
+                'check_in' => $booking->check_in_date->format('d M Y'),
+                'check_out' => $booking->check_out_date->format('d M Y'),
+                'phone' => $booking->guest_phone,
+            ],
+            'message' => 'Reservasi kamar berhasil dicatat! Pihak hotel akan segera menghubungi Anda.',
+        ]);
+    }
+
+    /**
+     * Handle PDF Document Upload in Chat (e.g., Guest voucher, ID card, booking note).
+     */
+    public function uploadPdf(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:pdf|max:10240', // Max 10MB
+            'session_id' => 'required|string',
+            'locale' => 'nullable|string|in:id,en',
+        ]);
+
+        $file = $request->file('file');
+        $fileName = $file->getClientOriginalName();
+        $storedPath = $file->store('chat_docs', 'public');
+        $fullPath = storage_path('app/public/' . $storedPath);
+
+        // Ekstraksi teks dari PDF
+        $extractedText = PdfTextExtractor::extract($fullPath);
+
+        ChatDocument::create([
+            'session_id' => $request->input('session_id'),
+            'file_name' => $fileName,
+            'file_path' => $storedPath,
+            'extracted_text' => $extractedText,
+        ]);
+
+        // Simpan pesan sistem bahwa dokumen diunggah
+        $conversation = Conversation::where('session_id', $request->input('session_id'))->first();
+        if ($conversation) {
+            Message::create([
+                'conversation_id' => $conversation->id,
+                'role' => 'user',
+                'content' => "📄 [Mengunggah Dokumen PDF: {$fileName}]",
+            ]);
+        }
+
+        // Generate respons analisis PDF oleh AI
+        $prompt = "Tamu telah mengunggah dokumen PDF dengan nama '{$fileName}'. Isi teks yang terbaca:\n" . Str::limit($extractedText, 1500) . "\nBerikan konfirmasi hangat bahwa dokumen telah diterima dan sebutkan ringkasannya.";
+        $aiResult = $this->chatService->generateResponse($prompt, [], $request->input('locale', 'id'), $request->input('session_id'));
+
+        if ($conversation) {
+            Message::create([
+                'conversation_id' => $conversation->id,
+                'role' => 'assistant',
+                'content' => $aiResult['content'],
+            ]);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'file_name' => $fileName,
+                'file_url' => asset('storage/' . $storedPath),
+                'assistant_reply' => $aiResult['content'],
+                'rendered_html' => Str::markdown($aiResult['content']),
             ],
         ]);
     }
@@ -106,9 +233,7 @@ class ChatController extends Controller
         if (!$sessionId) {
             return response()->json([
                 'status' => 'success',
-                'data' => [
-                    'messages' => [],
-                ],
+                'data' => ['messages' => []],
             ]);
         }
 
@@ -119,9 +244,7 @@ class ChatController extends Controller
         if (!$conversation) {
             return response()->json([
                 'status' => 'success',
-                'data' => [
-                    'messages' => [],
-                ],
+                'data' => ['messages' => []],
             ]);
         }
 
@@ -152,34 +275,17 @@ class ChatController extends Controller
      */
     public function newConversation(): JsonResponse
     {
-        $sessionId = (string) Str::uuid();
+        $session = 'aegora_' . Str::random(12) . '_' . time();
         $conversation = Conversation::create([
-            'session_id' => $sessionId,
-            'title' => 'Percakapan Baru',
-            'user_id' => auth()->id() ?? null,
+            'session_id' => $session,
+            'title' => 'Sesi Percakapan Baru',
         ]);
 
         return response()->json([
             'status' => 'success',
             'data' => [
-                'conversation_id' => $conversation->id,
                 'session_id' => $conversation->session_id,
             ],
-        ]);
-    }
-
-    /**
-     * List recent conversations.
-     */
-    public function listConversations(): JsonResponse
-    {
-        $conversations = Conversation::latest('updated_at')
-            ->take(10)
-            ->get(['id', 'session_id', 'title', 'created_at', 'updated_at']);
-
-        return response()->json([
-            'status' => 'success',
-            'data' => $conversations,
         ]);
     }
 }
