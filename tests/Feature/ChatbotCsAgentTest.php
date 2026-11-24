@@ -28,7 +28,14 @@ class ChatbotCsAgentTest extends TestCase
 
     public function test_chat_page_loads_successfully(): void
     {
-        $response = $this->get('/chat');
+        $user = User::create([
+            'name' => 'Tamu Hotel',
+            'email' => 'tamu@aegora.com',
+            'password' => Hash::make('password123'),
+            'role' => 'user',
+        ]);
+
+        $response = $this->actingAs($user)->get('/chat');
         $response->assertStatus(200);
         $response->assertSee('Aegora Assist');
         $response->assertSee('lang-id-btn');
@@ -41,6 +48,7 @@ class ChatbotCsAgentTest extends TestCase
             'name' => 'Duty Manager',
             'email' => 'admin@aegora.com',
             'password' => Hash::make('password123'),
+            'role' => 'staff',
         ]);
 
         $loginResponse = $this->post('/login', [

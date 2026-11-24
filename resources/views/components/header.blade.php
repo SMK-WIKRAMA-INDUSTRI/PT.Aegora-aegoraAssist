@@ -18,14 +18,14 @@
         </a>
 
         <!-- Navigation & Actions -->
-        <div class="flex items-center gap-2 sm:gap-3">
+        <div class="flex items-center gap-1.5 sm:gap-2.5">
             <!-- Beranda Link -->
             <a href="{{ route('landing') }}" class="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-stone-700 text-xs font-semibold hover:bg-[#EFE7D4] transition border border-transparent hover:border-[#DFCFA8]">
                 <span>🏠 Beranda</span>
             </a>
 
             <!-- Hubungi Staf -->
-            <button type="button" id="nav-contact-staff-btn" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[#4A1521] text-xs font-semibold hover:bg-[#F0E6D2] border border-[#DFCFA8] transition">
+            <button type="button" id="nav-contact-staff-btn" class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-[#4A1521] text-xs font-semibold hover:bg-[#F0E6D2] border border-[#DFCFA8] transition">
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                 </svg>
@@ -38,8 +38,24 @@
                 <button type="button" id="lang-en-btn" title="English" class="px-2.5 py-1 rounded-lg transition-all text-stone-500 hover:text-stone-800">EN</button>
             </div>
 
+            @auth
+                <!-- User Profile & Riwayat Chat -->
+                <a href="{{ route('profile') }}" title="Profil & Riwayat Percakapan" class="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#F5EAD4] border border-[#DFCFA8] text-[#571724] hover:bg-[#ECE0C6] transition">
+                    <span>👤</span>
+                    <span class="max-w-[80px] sm:max-w-[120px] truncate">{{ Auth::user()->name }}</span>
+                </a>
+            @else
+                <!-- Guest Auth Links -->
+                <a href="{{ route('login') }}" class="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold text-[#571724] bg-[#F7EFE2] border border-[#DECFA8] hover:bg-[#EFE3CF] transition">
+                    <span>Masuk</span>
+                </a>
+                <a href="{{ route('register') }}" class="hidden sm:inline-block px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-[#571724] text-white hover:bg-[#440F1B] transition">
+                    <span>Daftar</span>
+                </a>
+            @endauth
+
             <!-- Portal Staf / Admin -->
-            <a href="{{ route('login') }}" title="Portal Staf Hotel" class="px-3 py-1.5 rounded-xl text-xs font-semibold text-[#571724] bg-[#F7EFE2] border border-[#DECFA8] hover:bg-[#EFE3CF] transition">
+            <a href="{{ route('login', ['role' => 'staff']) }}" title="Portal Staf Hotel" class="px-2.5 py-1.5 rounded-xl text-xs font-medium text-stone-600 hover:text-[#571724] border border-transparent hover:border-[#DFCFA8] transition">
                 <span>Staf</span>
             </a>
 

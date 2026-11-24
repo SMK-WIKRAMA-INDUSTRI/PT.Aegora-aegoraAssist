@@ -52,6 +52,11 @@ class ChatController extends Controller
             ]
         );
 
+        if (auth()->check() && !$conversation->user_id) {
+            $conversation->user_id = auth()->id();
+            $conversation->save();
+        }
+
         // Save User Message
         $userMessage = Message::create([
             'conversation_id' => $conversation->id,
@@ -271,6 +276,43 @@ class ChatController extends Controller
     }
 
     /**
+     * Retrieve conversation sessions of the authenticated user.
+     */
+    public function getUserConversations(): JsonResponse
+    {
+        $userId = auth()->id();
+        if (!$userId) {
+            return response()->json([
+                'status' => 'success',
+                'data' => ['conversations' => []],
+            ]);
+        }
+
+        $conversations = Conversation::where('user_id', $userId)
+            ->withCount('messages')
+            ->orderBy('updated_at', 'desc')
+            ->take(25)
+            ->get()
+            ->map(function ($c) {
+                return [
+                    'id' => $c->id,
+                    'session_id' => $c->session_id,
+                    'title' => $c->title,
+                    'messages_count' => $c->messages_count,
+                    'updated_at' => $c->updated_at->diffForHumans(),
+                    'date' => $c->updated_at->format('d M Y, H:i'),
+                ];
+            });
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'conversations' => $conversations,
+            ],
+        ]);
+    }
+
+    /**
      * Create a fresh conversation session.
      */
     public function newConversation(): JsonResponse
@@ -279,6 +321,7 @@ class ChatController extends Controller
         $conversation = Conversation::create([
             'session_id' => $session,
             'title' => 'Sesi Percakapan Baru',
+            'user_id' => auth()->id() ?? null,
         ]);
 
         return response()->json([

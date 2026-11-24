@@ -15,11 +15,24 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // Staff / Admin Hotel User
-        User::firstOrCreate(
+        User::updateOrCreate(
             ['email' => 'admin@aegora.com'],
             [
                 'name' => 'Duty Manager & Staff Aegora',
                 'password' => Hash::make('password123'),
+                'role' => 'staff',
+                'phone' => '+62 811-9876-5432',
+            ]
+        );
+
+        // Guest / User Demo Account
+        User::updateOrCreate(
+            ['email' => 'tamu@aegora.com'],
+            [
+                'name' => 'Bpk. Hendra Wijaya',
+                'password' => Hash::make('password123'),
+                'role' => 'user',
+                'phone' => '+62 812-3456-7890',
             ]
         );
 

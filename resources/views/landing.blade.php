@@ -35,14 +35,35 @@
             </nav>
 
             <!-- Action Buttons -->
-            <div class="flex items-center gap-3">
-                <a href="{{ route('login') }}" class="px-3.5 py-2 rounded-xl text-xs font-semibold text-[#571724] border border-[#DFCFA8] hover:bg-[#F3EAD7] transition">
-                    Portal Staff
-                </a>
-                <a href="{{ route('chat') }}" class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-[#571724] text-white hover:bg-[#46111C] shadow-md hover:shadow-lg transition active:scale-95">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span>Coba Concierge Live</span>
-                </a>
+            <div class="flex items-center gap-2 sm:gap-3">
+                @auth
+                    <a href="{{ route('profile') }}" class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-[#571724] bg-[#F7EFE2] border border-[#DFCFA8] hover:bg-[#EFE3CF] transition">
+                        <span>👤 {{ Str::limit(Auth::user()->name, 14) }}</span>
+                    </a>
+                    @if (Auth::user()->isStaff())
+                        <a href="{{ route('admin.dashboard') }}" class="hidden sm:inline-block px-3 py-2 rounded-xl text-xs font-semibold text-[#571724] border border-[#DFCFA8] hover:bg-[#F3EAD7] transition">
+                            Dashboard Staf
+                        </a>
+                    @endif
+                    <a href="{{ route('chat') }}" class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-[#571724] text-white hover:bg-[#46111C] shadow-md hover:shadow-lg transition active:scale-95">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span>Concierge Chat</span>
+                    </a>
+                @else
+                    <a href="{{ route('register') }}" class="hidden sm:inline-block px-3.5 py-2 rounded-xl text-xs font-semibold text-[#571724] border border-[#DFCFA8] hover:bg-[#F3EAD7] transition">
+                        Daftar Tamu
+                    </a>
+                    <a href="{{ route('login') }}" class="px-3.5 py-2 rounded-xl text-xs font-semibold text-[#571724] border border-[#DFCFA8] hover:bg-[#F3EAD7] transition">
+                        Masuk
+                    </a>
+                    <a href="{{ route('login', ['role' => 'staff']) }}" class="hidden lg:inline-block px-3 py-2 rounded-xl text-xs font-medium text-stone-600 hover:text-stone-900 transition">
+                        Portal Staff
+                    </a>
+                    <a href="{{ route('chat') }}" class="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-[#571724] text-white hover:bg-[#46111C] shadow-md hover:shadow-lg transition active:scale-95">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span>Coba Concierge Live</span>
+                    </a>
+                @endauth
             </div>
         </div>
     </header>

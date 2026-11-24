@@ -1,8 +1,11 @@
 import './bootstrap';
+import './aegora-voice';
 
 document.addEventListener('DOMContentLoaded', () => {
     // Session state
-    let sessionId = localStorage.getItem('aegora_session_id') || ('aegora_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now());
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlSessionId = urlParams.get('session_id');
+    let sessionId = urlSessionId || localStorage.getItem('aegora_session_id') || ('aegora_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now());
     localStorage.setItem('aegora_session_id', sessionId);
 
     // Language state
@@ -435,17 +438,20 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.data && response.data.status === 'success') {
                 const assistantData = response.data.data.assistant_message;
                 appendAssistantMessage(assistantData);
+                window.dispatchEvent(new CustomEvent('aegora:assistant-reply', { detail: assistantData }));
             } else {
                 throw new Error('Respon tidak valid dari server');
             }
         } catch (error) {
             console.error('Chat send error:', error);
             const dict = i18n[currentLang] || i18n.id;
-            appendAssistantMessage({
+            const errData = {
                 content: dict.error_network,
                 rendered_html: `<p>${dict.error_network}</p>`,
                 facility: null
-            });
+            };
+            appendAssistantMessage(errData);
+            window.dispatchEvent(new CustomEvent('aegora:assistant-reply', { detail: errData }));
         } finally {
             loadingIndicator.classList.add('hidden');
             chatInput.disabled = false;
@@ -455,6 +461,8 @@ document.addEventListener('DOMContentLoaded', () => {
             scrollToBottom();
         }
     };
+
+    window.aegoraSendMessage = handleSendMessage;
 
     // Form submit
     chatForm.addEventListener('submit', (e) => {
@@ -667,6 +675,38 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Load session history if continuing past conversation
+    const loadSessionHistory = async (targetSession) => {
+        try {
+            const res = await window.axios.get(`/api/chat/history?session_id=${encodeURIComponent(targetSession)}`);
+            if (res.data && res.data.status === 'success' && res.data.data.messages && res.data.data.messages.length > 0) {
+                if (messagesContainer) {
+                    messagesContainer.innerHTML = '';
+                    res.data.data.messages.forEach((msg) => {
+                        if (msg.role === 'user') {
+                            appendUserMessage(msg.content, msg.time);
+                        } else {
+                            appendAssistantMessage({
+                                content: msg.content,
+                                rendered_html: msg.rendered_html,
+                                time: msg.time,
+                                facility: msg.facility,
+                            });
+                        }
+                    });
+                    hideQuickReplies();
+                    scrollToBottom();
+                }
+            }
+        } catch (err) {
+            console.error('Gagal memuat riwayat sesi chat:', err);
+        }
+    };
+
+    if (urlSessionId) {
+        loadSessionHistory(urlSessionId);
+    }
+
     // New Chat Button Handler
     if (newChatBtn) {
         newChatBtn.addEventListener('click', () => {
@@ -674,16 +714,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (confirm(dict.confirm_new_chat)) {
                 sessionId = 'aegora_' + Math.random().toString(36).substring(2, 11) + '_' + Date.now();
                 localStorage.setItem('aegora_session_id', sessionId);
-                window.location.reload();
+                window.location.href = '/chat';
             }
-        });
-    }
-
-    if (voiceBtn) {
-        voiceBtn.addEventListener('click', () => {
-            alert(currentLang === 'en'
-                ? 'Voice message feature is currently in preparation for upcoming update.'
-                : 'Fitur perintah suara (voice message) sedang disiapkan untuk pembaruan berikutnya.');
         });
     }
 });
