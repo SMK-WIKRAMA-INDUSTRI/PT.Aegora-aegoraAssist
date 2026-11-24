@@ -383,7 +383,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${facilityHtml}
 
                     <div class="pt-2 flex items-center justify-between border-t border-[#F2EADB] text-[11px] text-stone-400">
-                        <span>${dict.feedback_helpful}</span>
+                        <div class="flex items-center gap-2">
+                            <button type="button" class="speak-msg-btn inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#F5EFE2] hover:bg-[#EAE0CB] text-[#571724] font-semibold transition" data-speak-lang="${escapeHtml(data.detected_language || currentLang)}" title="Dengarkan dengan Suara AI Deepgram">
+                                <span>🔊</span>
+                                <span>${currentLang === 'en' ? 'Listen' : 'Dengarkan'}</span>
+                            </button>
+                            <span class="hidden sm:inline">${dict.feedback_helpful}</span>
+                        </div>
                         <div class="flex items-center gap-2">
                             <button type="button" class="feedback-btn hover:text-stone-700 p-1 rounded-md hover:bg-[#EFE8D6] transition" title="Helpful">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -401,6 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
 
+        div.dataset.rawContent = data.content || '';
         messagesContainer.appendChild(div);
         scrollToBottom();
     };
@@ -412,7 +419,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Send Message Handler
-    const handleSendMessage = async (text) => {
+    const handleSendMessage = async (text, options = {}) => {
         const query = (text || chatInput.value).trim();
         if (!query || isProcessing) return;
 
@@ -432,7 +439,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await window.axios.post('/api/chat/send', {
                 message: query,
                 session_id: sessionId,
-                locale: currentLang
+                locale: options.locale || currentLang,
+                voice_mode: Boolean(options.voiceMode)
             });
 
             if (response.data && response.data.status === 'success') {
@@ -463,6 +471,15 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.aegoraSendMessage = handleSendMessage;
+    window.aegoraGetSessionId = () => sessionId;
+    window.aegoraAppendVoiceTurn = (userMsg, assistantMsg) => {
+        if (userMsg && userMsg.content) {
+            appendUserMessage(userMsg.content, userMsg.time);
+        }
+        if (assistantMsg && assistantMsg.content) {
+            appendAssistantMessage(assistantMsg, assistantMsg.time);
+        }
+    };
 
     // Form submit
     chatForm.addEventListener('submit', (e) => {
@@ -528,6 +545,43 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Live Price Summary Calculator for PRD BK-03 & BK-06
+    const updateBookingSummary = () => {
+        const roomSelect = document.getElementById('bkg-room-type');
+        const checkinEl = document.getElementById('bkg-checkin');
+        const checkoutEl = document.getElementById('bkg-checkout');
+        if (!roomSelect || !checkinEl || !checkoutEl) return;
+
+        const opt = roomSelect.options[roomSelect.selectedIndex];
+        const price = parseFloat(opt?.dataset?.price || '1250000');
+        const taxPct = parseFloat(opt?.dataset?.tax || '21');
+
+        let nights = 1;
+        if (checkinEl.value && checkoutEl.value) {
+            const diff = Math.round((new Date(checkoutEl.value) - new Date(checkinEl.value)) / (1000 * 60 * 60 * 24));
+            nights = diff > 0 ? diff : 1;
+        }
+
+        const subtotal = price * nights;
+        const tax = Math.round(subtotal * (taxPct / 100));
+        const total = subtotal + tax;
+        const fmt = (n) => 'IDR ' + Math.round(n).toLocaleString('id-ID');
+
+        const nightsEl = document.getElementById('bkg-summary-nights');
+        const subEl = document.getElementById('bkg-summary-subtotal');
+        const taxEl = document.getElementById('bkg-summary-tax');
+        const totEl = document.getElementById('bkg-summary-total');
+        if (nightsEl) nightsEl.textContent = `${nights} malam`;
+        if (subEl) subEl.textContent = fmt(subtotal);
+        if (taxEl) taxEl.textContent = fmt(tax);
+        if (totEl) totEl.textContent = fmt(total);
+    };
+
+    ['bkg-room-type', 'bkg-checkin', 'bkg-checkout'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', updateBookingSummary);
+    });
+
     // Modal Booking Handlers
     const openBookingModal = () => {
         if (bookingModal) {
@@ -539,8 +593,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const checkinEl = document.getElementById('bkg-checkin');
             const checkoutEl = document.getElementById('bkg-checkout');
-            if (checkinEl && !checkinEl.value) checkinEl.value = today.toISOString().split('T')[0];
+            const todayStr = today.toISOString().split('T')[0];
+            if (checkinEl) {
+                checkinEl.min = todayStr;
+                if (!checkinEl.value) checkinEl.value = todayStr;
+            }
             if (checkoutEl && !checkoutEl.value) checkoutEl.value = tomorrow.toISOString().split('T')[0];
+            updateBookingSummary();
         }
     };
 
@@ -589,9 +648,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                             <div class="text-xs space-y-1 text-stone-700">
                                 <p><strong>Nama Tamu:</strong> ${escapeHtml(d.guest_name)}</p>
-                                <p><strong>Tipe Kamar:</strong> ${escapeHtml(d.room_type)}</p>
-                                <p><strong>Periode:</strong> ${escapeHtml(d.check_in)} – ${escapeHtml(d.check_out)}</p>
+                                <p><strong>Tipe Kamar:</strong> ${escapeHtml(d.room_type)} (${d.guest_count || 2} tamu)</p>
+                                <p><strong>Periode:</strong> ${escapeHtml(d.check_in)} – ${escapeHtml(d.check_out)}${d.nights ? ` (${d.nights} malam)` : ''}</p>
                                 <p><strong>No. WhatsApp:</strong> ${escapeHtml(d.phone)}</p>
+                                ${d.total_formatted ? `<p><strong>Rincian Biaya:</strong> Kamar ${escapeHtml(d.subtotal_formatted)} + Pajak ${escapeHtml(d.tax_formatted)} = <strong class="text-[#571724]">${escapeHtml(d.total_formatted)}</strong></p>` : ''}
+                                ${d.cancellation_policy ? `<p class="text-[11px] text-stone-500"><strong>Pembatalan:</strong> ${escapeHtml(d.cancellation_policy)}</p>` : ''}
                             </div>
                             <div class="pt-2 text-[11px] text-emerald-800 font-semibold border-t border-[#E8DEC2]">
                                 ✓ Data telah diteruskan ke Tim Reservasi Hotel. Kami akan segera menghubungi WhatsApp Anda untuk konfirmasi pembayaran.
@@ -640,6 +701,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 handleSendMessage(currentLang === 'en' ? 'How can I reserve a breakfast table?' : 'Bagaimana cara reservasi meja sarapan?');
             } else if (action === 'reception') {
                 openStaffModal();
+            }
+            return;
+        }
+
+        // Listen with Deepgram Voice button
+        const speakBtn = e.target.closest('.speak-msg-btn');
+        if (speakBtn) {
+            const bubbleRoot = speakBtn.closest('[data-raw-content]') || speakBtn.closest('.group');
+            const rawText = bubbleRoot?.dataset?.rawContent || bubbleRoot?.querySelector('.prose')?.textContent || '';
+            const lang = speakBtn.getAttribute('data-speak-lang') || currentLang;
+            if (rawText && typeof window.aegoraSpeakText === 'function') {
+                window.aegoraSpeakText(rawText, lang, speakBtn);
             }
             return;
         }

@@ -115,9 +115,17 @@
                     <div>
                         <label class="block font-bold text-stone-700 mb-1">Pilihan Tipe Kamar</label>
                         <select id="bkg-room-type" class="w-full px-3.5 py-2.5 rounded-xl bg-[#F5EFE2] border border-[#DFCFA8] text-stone-800 focus:outline-none focus:border-[#571724]">
-                            <option value="Deluxe King Room">Deluxe King Room (IDR 1.250.000++)</option>
-                            <option value="Deluxe Twin Room">Deluxe Twin Room (IDR 1.250.000++)</option>
-                            <option value="Executive Club Suite">Executive Club Suite (IDR 2.450.000++)</option>
+                            @if(isset($rooms) && $rooms->isNotEmpty())
+                                @foreach($rooms as $room)
+                                    <option value="{{ $room->name }}" data-price="{{ (float) $room->price_per_night }}" data-tax="{{ (float) $room->tax_percent }}" data-capacity="{{ $room->capacity }}">
+                                        {{ $room->name }} (IDR {{ number_format((float) $room->price_per_night, 0, ',', '.') }}++ • maks {{ $room->capacity }} tamu)
+                                    </option>
+                                @endforeach
+                            @else
+                                <option value="Deluxe King Room" data-price="1250000" data-tax="21" data-capacity="2">Deluxe King Room (IDR 1.250.000++)</option>
+                                <option value="Deluxe Twin Room" data-price="1250000" data-tax="21" data-capacity="2">Deluxe Twin Room (IDR 1.250.000++)</option>
+                                <option value="Executive Club Suite" data-price="2450000" data-tax="21" data-capacity="3">Executive Club Suite (IDR 2.450.000++)</option>
+                            @endif
                         </select>
                     </div>
                     <div>
@@ -142,8 +150,36 @@
                     <textarea id="bkg-requests" rows="2" placeholder="Contoh: Non-smoking room, high floor, honeymoon setup..." class="w-full px-3.5 py-2 rounded-xl bg-[#F5EFE2] border border-[#DFCFA8] text-stone-800 focus:outline-none focus:border-[#571724]"></textarea>
                 </div>
 
+                <!-- PRD BK-06: Ringkasan Estimasi Biaya & Konfirmasi Eksplisit -->
+                <div id="bkg-summary-box" class="bg-[#F4ECE0] border border-[#DFCFA8] rounded-2xl p-3.5 space-y-1.5 text-[11px] text-stone-700">
+                    <div class="flex items-center justify-between font-bold text-[#3B121C]">
+                        <span>📋 Ringkasan Estimasi Pesanan</span>
+                        <span id="bkg-summary-nights">1 malam</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span>Biaya Kamar</span>
+                        <span id="bkg-summary-subtotal">IDR 1.250.000</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span>Pajak & Layanan (21%)</span>
+                        <span id="bkg-summary-tax">IDR 262.500</span>
+                    </div>
+                    <div class="flex items-center justify-between font-bold text-xs text-[#571724] pt-1 border-t border-[#E0D2B5]">
+                        <span>Estimasi Total</span>
+                        <span id="bkg-summary-total">IDR 1.512.500</span>
+                    </div>
+                    <p class="text-[10px] text-stone-500 pt-1">
+                        Kebijakan Pembatalan: Gratis pembatalan hingga 24 jam sebelum check-in (H-1 pukul 14.00 WIB).
+                    </p>
+                </div>
+
+                <label class="flex items-start gap-2 cursor-pointer text-[11px] text-stone-700">
+                    <input type="checkbox" id="bkg-confirm-check" required class="mt-0.5 rounded border-[#DFCFA8] text-[#571724] focus:ring-0">
+                    <span>Ya, saya telah memeriksa ringkasan pesanan di atas dan menyetujui kebijakan pembatalan Aegora Hotel.</span>
+                </label>
+
                 <button type="submit" id="bkg-submit-btn" class="w-full py-3 rounded-xl bg-[#571724] text-white font-bold text-xs sm:text-sm hover:bg-[#430F1A] transition shadow-md">
-                    Kirim Reservasi ke Pihak Hotel
+                    Ya, Pesan Kamar Sekarang
                 </button>
             </form>
         </div>

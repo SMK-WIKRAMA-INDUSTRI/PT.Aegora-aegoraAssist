@@ -106,7 +106,13 @@
 
                 <!-- Feedback Row -->
                 <div class="pt-2 flex items-center justify-between border-t border-[#F2EADB] text-[11px] text-stone-400">
-                    <span>Apakah informasi ini membantu Anda?</span>
+                    <div class="flex items-center gap-2">
+                        <button type="button" class="speak-msg-btn inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#F5EFE2] hover:bg-[#EAE0CB] text-[#571724] font-semibold transition" data-speak-lang="id" title="Dengarkan dengan Suara AI Deepgram">
+                            <span>🔊</span>
+                            <span>Dengarkan</span>
+                        </button>
+                        <span class="hidden sm:inline">Apakah informasi ini membantu Anda?</span>
+                    </div>
                     <div class="flex items-center gap-2">
                         <button type="button" class="feedback-btn hover:text-stone-700 p-1 rounded-md hover:bg-[#EFE8D6] transition" title="Membantu">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

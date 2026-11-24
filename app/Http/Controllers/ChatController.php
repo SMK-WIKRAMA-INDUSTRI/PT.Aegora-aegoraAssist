@@ -6,8 +6,12 @@ use App\Models\ChatDocument;
 use App\Models\Conversation;
 use App\Models\GuestBooking;
 use App\Models\Message;
+use App\Models\Room;
+use App\Models\User;
+use App\Services\DeepgramVoiceService;
 use App\Services\NetraChatService;
 use App\Services\PdfTextExtractor;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -15,10 +19,12 @@ use Illuminate\Support\Str;
 class ChatController extends Controller
 {
     protected NetraChatService $chatService;
+    protected DeepgramVoiceService $voiceService;
 
-    public function __construct(NetraChatService $chatService)
+    public function __construct(NetraChatService $chatService, DeepgramVoiceService $voiceService)
     {
         $this->chatService = $chatService;
+        $this->voiceService = $voiceService;
     }
 
     /**
@@ -26,7 +32,35 @@ class ChatController extends Controller
      */
     public function index()
     {
-        return view('chat');
+        $rooms = Room::where('is_available', true)->orderBy('price_per_night')->get();
+        return view('chat', compact('rooms'));
+    }
+
+    /**
+     * Return active room list from database for interactive booking form & availability calculation.
+     */
+    public function getRooms(): JsonResponse
+    {
+        $rooms = Room::where('is_available', true)
+            ->orderBy('price_per_night')
+            ->get()
+            ->map(fn (Room $room) => [
+                'id' => $room->id,
+                'name' => $room->name,
+                'category' => $room->category,
+                'price_per_night' => (float) $room->price_per_night,
+                'tax_percent' => (float) $room->tax_percent,
+                'capacity' => $room->capacity,
+                'size_sqm' => $room->size_sqm,
+                'bed_type' => $room->bed_type,
+                'facilities' => $room->facilities ?? [],
+                'image_url' => $room->image_url,
+            ]);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => ['rooms' => $rooms],
+        ]);
     }
 
     /**
@@ -37,10 +71,14 @@ class ChatController extends Controller
         $validated = $request->validate([
             'message' => 'required|string|min:1|max:3000',
             'session_id' => 'nullable|string|max:100',
-            'locale' => 'nullable|string|in:id,en',
+            'locale' => 'nullable|string|max:10',
+            'voice_mode' => 'nullable|boolean',
         ]);
 
-        $locale = $validated['locale'] ?? 'id';
+        $fallbackLocale = $validated['locale'] ?? 'id';
+        $detectedLocale = $this->voiceService->detectLanguage($validated['message'], $fallbackLocale);
+        $locale = in_array($detectedLocale, ['id', 'en', 'ja', 'fr', 'de', 'es'], true) ? $detectedLocale : $fallbackLocale;
+        $voiceMode = (bool) ($validated['voice_mode'] ?? false);
         $sessionId = $validated['session_id'] ?? (string) Str::uuid();
 
         // Retrieve or initialize conversation
@@ -76,8 +114,8 @@ class ChatController extends Controller
             ])
             ->toArray();
 
-        // Generate response via Service with localized persona & function calling
-        $aiResult = $this->chatService->generateResponse($validated['message'], $history, $locale, $sessionId);
+        // Generate response via Service with localized persona, DB Knowledge Base & function calling
+        $aiResult = $this->chatService->generateResponse($validated['message'], $history, $locale, $sessionId, $voiceMode);
 
         // Save Assistant Message
         $assistantMessage = Message::create([
@@ -87,12 +125,15 @@ class ChatController extends Controller
             'facility_data' => $aiResult['facility'] ?? null,
         ]);
 
+        $replyLang = $this->voiceService->detectLanguage($assistantMessage->content, $locale);
+
         return response()->json([
             'status' => 'success',
             'data' => [
                 'conversation_id' => $conversation->id,
                 'session_id' => $conversation->session_id,
                 'locale' => $locale,
+                'detected_language' => $replyLang,
                 'user_message' => [
                     'id' => $userMessage->id,
                     'role' => 'user',
@@ -106,6 +147,7 @@ class ChatController extends Controller
                     'rendered_html' => Str::markdown($assistantMessage->content),
                     'facility' => $assistantMessage->facility_data,
                     'special_action' => $aiResult['special_action'] ?? null,
+                    'detected_language' => $replyLang,
                     'time' => $assistantMessage->created_at->format('H:i') . ' WIB',
                     'source' => $aiResult['source'] ?? 'simulated',
                 ],
@@ -114,7 +156,7 @@ class ChatController extends Controller
     }
 
     /**
-     * Submit Interactive Booking Form directly from Chat.
+     * Submit Interactive Booking Form directly from Chat (PRD Modul 2: BK-02 s/d BK-07).
      */
     public function submitBooking(Request $request): JsonResponse
     {
@@ -124,35 +166,90 @@ class ChatController extends Controller
             'guest_phone' => 'required|string|max:30',
             'guest_email' => 'nullable|email|max:100',
             'room_type' => 'required|string',
-            'check_in_date' => 'required|date',
+            'room_count' => 'nullable|integer|min:1|max:5',
+            'check_in_date' => 'required|date|after_or_equal:today',
             'check_out_date' => 'required|date|after:check_in_date',
             'guest_count' => 'required|integer|min:1|max:10',
             'special_requests' => 'nullable|string|max:500',
         ]);
 
+        $roomCount = (int) ($validated['room_count'] ?? 1);
+        $checkIn = Carbon::parse($validated['check_in_date']);
+        $checkOut = Carbon::parse($validated['check_out_date']);
+        $nights = max(1, (int) $checkIn->diffInDays($checkOut));
+
+        // Match Room record in MySQL for authoritative pricing & capacity check
+        $room = Room::where('name', $validated['room_type'])->first()
+            ?? Room::where('name', 'like', '%' . $validated['room_type'] . '%')->first();
+
+        if ($room && $validated['guest_count'] > ($room->capacity * $roomCount)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => "Kapasitas maksimal untuk {$roomCount}x {$room->name} adalah " . ($room->capacity * $roomCount) . " tamu. Silakan tambah jumlah kamar atau pilih tipe Family Suite.",
+            ], 422);
+        }
+
+        $pricePerNight = $room
+            ? (float) $room->price_per_night
+            : (str_contains(strtolower($validated['room_type']), 'suite') ? 2450000 : 1250000);
+        $taxPercent = $room ? (float) $room->tax_percent : 21.0;
+
+        $subtotal = $pricePerNight * $nights * $roomCount;
+        $taxAmount = round($subtotal * ($taxPercent / 100));
+        $depositAmount = 500000 * $roomCount;
+        $totalAmount = $subtotal + $taxAmount;
+
+        // Link to authenticated user or existing guest email
+        $userId = auth()->id();
+        if (!$userId && !empty($validated['guest_email'])) {
+            $userId = User::where('email', $validated['guest_email'])->value('id');
+        }
+
         $bookingCode = 'AEG-BKG-' . strtoupper(Str::random(6));
 
         $booking = GuestBooking::create([
+            'user_id' => $userId,
+            'room_id' => $room?->id,
             'booking_code' => $bookingCode,
             'session_id' => $validated['session_id'],
             'guest_name' => $validated['guest_name'],
             'guest_phone' => $validated['guest_phone'],
             'guest_email' => $validated['guest_email'] ?? null,
-            'room_type' => $validated['room_type'],
+            'room_type' => $room ? $room->name : $validated['room_type'],
+            'room_count' => $roomCount,
             'check_in_date' => $validated['check_in_date'],
             'check_out_date' => $validated['check_out_date'],
             'guest_count' => $validated['guest_count'],
+            'price_per_night' => $pricePerNight,
+            'nights' => $nights,
+            'subtotal_amount' => $subtotal,
+            'tax_amount' => $taxAmount,
+            'deposit_amount' => $depositAmount,
+            'total_amount' => $totalAmount,
             'special_requests' => $validated['special_requests'] ?? null,
             'status' => 'pending_hotel_contact',
+            'payment_status' => 'unpaid',
         ]);
 
-        // Tambahkan konfirmasi ke dalam riwayat obrolan
+        $fmtTotal = 'IDR ' . number_format($totalAmount, 0, ',', '.');
+        $fmtSubtotal = 'IDR ' . number_format($subtotal, 0, ',', '.');
+        $fmtTax = 'IDR ' . number_format($taxAmount, 0, ',', '.');
+
+        // Tambahkan konfirmasi lengkap PRD 4.4 ke dalam riwayat obrolan
         $conversation = Conversation::where('session_id', $validated['session_id'])->first();
         if ($conversation) {
             Message::create([
                 'conversation_id' => $conversation->id,
                 'role' => 'assistant',
-                'content' => "✅ **Formulir Booking Berhasil Terkirim!**\n\nKode Booking Resmi Anda: **`{$bookingCode}`**\nNama Tamu: **{$booking->guest_name}**\nTipe Kamar: **{$booking->room_type}**\nTanggal: **" . $booking->check_in_date->format('d M Y') . " s/d " . $booking->check_out_date->format('d M Y') . "**\n\n*Pihak Hotel Aegora akan segera menghubungi WhatsApp Anda ({$booking->guest_phone}) untuk konfirmasi pembayaran dan rincian kamar.*",
+                'content' => "✅ **Konfirmasi Pemesanan Kamar Aegora Hotel**\n\n"
+                    . "• **Kode Booking:** `{$bookingCode}`\n"
+                    . "• **Nama Tamu:** {$booking->guest_name} ({$booking->guest_phone})\n"
+                    . "• **Tipe Kamar:** {$booking->room_count}x {$booking->room_type} ({$booking->guest_count} tamu)\n"
+                    . "• **Tanggal:** " . $booking->check_in_date->format('d M Y') . " s/d " . $booking->check_out_date->format('d M Y') . " ({$nights} malam)\n"
+                    . "• **Rincian Biaya:** Kamar {$fmtSubtotal} + Pajak & Layanan {$fmtTax} = **{$fmtTotal}**\n"
+                    . "• **Status Pembayaran:** Menunggu Konfirmasi Pembayaran\n"
+                    . "• **Kebijakan Pembatalan:** Pembatalan gratis hingga 24 jam sebelum check-in.\n\n"
+                    . "*Tim Reservasi Aegora Hotel akan segera menghubungi WhatsApp Anda ({$booking->guest_phone}) untuk langkah pembayaran. Simpan kode booking Anda untuk verifikasi saat check-in.*",
             ]);
         }
 
@@ -162,9 +259,18 @@ class ChatController extends Controller
                 'booking_code' => $booking->booking_code,
                 'guest_name' => $booking->guest_name,
                 'room_type' => $booking->room_type,
+                'room_count' => $booking->room_count,
+                'guest_count' => $booking->guest_count,
+                'nights' => $nights,
                 'check_in' => $booking->check_in_date->format('d M Y'),
                 'check_out' => $booking->check_out_date->format('d M Y'),
                 'phone' => $booking->guest_phone,
+                'subtotal_formatted' => $fmtSubtotal,
+                'tax_formatted' => $fmtTax,
+                'total_formatted' => $fmtTotal,
+                'payment_status' => 'Menunggu Konfirmasi',
+                'cancellation_policy' => 'Gratis pembatalan hingga 24 jam sebelum check-in (H-1 pukul 14.00 WIB).',
+                'special_requests' => $booking->special_requests,
             ],
             'message' => 'Reservasi kamar berhasil dicatat! Pihak hotel akan segera menghubungi Anda.',
         ]);

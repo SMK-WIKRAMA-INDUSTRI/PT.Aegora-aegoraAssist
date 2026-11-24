@@ -44,4 +44,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(Conversation::class)->orderBy('updated_at', 'desc');
     }
+
+    public function bookings()
+    {
+        return $this->hasMany(GuestBooking::class)->orderBy('created_at', 'desc');
+    }
 }

@@ -28,6 +28,22 @@ Route::middleware('auth')->group(function () {
 Route::middleware('auth')->prefix('admin')->group(function () {
     Route::get('/', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
     Route::post('/persona', [AdminDashboardController::class, 'updatePersona'])->name('admin.persona.update');
+    Route::post('/voice-settings', [AdminDashboardController::class, 'updateVoiceSettings'])->name('admin.voice.update');
     Route::post('/ticket/{ticket}/status', [AdminDashboardController::class, 'updateTicketStatus'])->name('admin.ticket.status');
     Route::post('/escalation/{escalation}/status', [AdminDashboardController::class, 'updateEscalationStatus'])->name('admin.escalation.status');
+    Route::post('/booking/{booking}/status', [AdminDashboardController::class, 'updateBookingStatus'])->name('admin.booking.status');
+
+    // Registrasi & Manajemen Akun Tamu oleh Admin (jika tamu belum punya akun)
+    Route::post('/guests', [AdminDashboardController::class, 'storeGuest'])->name('admin.guests.store');
+    Route::post('/guests/{user}/reset-password', [AdminDashboardController::class, 'resetGuestPassword'])->name('admin.guests.reset-password');
+    Route::delete('/guests/{user}', [AdminDashboardController::class, 'destroyGuest'])->name('admin.guests.destroy');
+
+    // PRD Modul 3 (IN-08): Kelola Tipe Kamar & Knowledge Base Hotel
+    Route::post('/rooms', [AdminDashboardController::class, 'storeRoom'])->name('admin.rooms.store');
+    Route::put('/rooms/{room}', [AdminDashboardController::class, 'updateRoom'])->name('admin.rooms.update');
+    Route::delete('/rooms/{room}', [AdminDashboardController::class, 'destroyRoom'])->name('admin.rooms.destroy');
+
+    Route::post('/knowledge', [AdminDashboardController::class, 'storeKnowledge'])->name('admin.knowledge.store');
+    Route::put('/knowledge/{knowledge}', [AdminDashboardController::class, 'updateKnowledge'])->name('admin.knowledge.update');
+    Route::delete('/knowledge/{knowledge}', [AdminDashboardController::class, 'destroyKnowledge'])->name('admin.knowledge.destroy');
 });
